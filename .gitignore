@@ -1,0 +1,36 @@
+# --- secrets: .env holds AWS keys, Google OAuth secret and JWT secrets ---
+.env
+.env.*
+!.env.example
+
+# dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# builds
+dist/
+build/
+.next/
+out/
+*.tsbuildinfo
+
+# test / coverage
+coverage/
+.nyc_output/
+
+# os / editor
+.DS_Store
+Thumbs.db
+*.swp
+.idea/
+.vscode/
+
+# logs
+*.log
+npm-debug.log*
+yarn-error.log*
+
+# prisma local db
+*.db
+*.sqlite

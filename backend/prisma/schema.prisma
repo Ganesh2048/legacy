@@ -1,0 +1,321 @@
+// Prisma Schema for Legacy Family Heritage Platform
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum SystemRole {
+  USER
+  ADMIN
+}
+
+enum FamilyRole {
+  OWNER
+  ADMIN
+  MEMBER
+  CONTRIBUTOR
+  VIEWER
+}
+
+enum Gender {
+  MALE
+  FEMALE
+  OTHER
+  UNKNOWN
+}
+
+enum RelationType {
+  FATHER
+  MOTHER
+  SPOUSE
+  CHILD
+  SIBLING
+  ADOPTED_CHILD
+  GUARDIAN
+}
+
+enum MediaType {
+  PHOTO
+  VIDEO
+  AUDIO
+  DOCUMENT
+}
+
+enum EventCategory {
+  BIRTH
+  EDUCATION
+  CAREER
+  MARRIAGE
+  CHILDREN
+  AWARD
+  TRAVEL
+  RETIREMENT
+  PASSING
+  OTHER
+}
+
+enum InviteStatus {
+  PENDING
+  ACCEPTED
+  DECLINED
+  EXPIRED
+}
+
+model User {
+  id               String         @id @default(uuid())
+  email            String         @unique
+  passwordHash     String?
+  fullName         String
+  avatarUrl        String?
+  systemRole       SystemRole     @default(USER)
+  emailVerified    Boolean        @default(false)
+  googleId         String?        @unique
+  refreshToken     String?
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+
+  // Relationships
+  familyMemberships FamilyMember[]
+  createdFamilies   Family[]       @relation("FamilyCreator")
+  sentInvitations   Invitation[]   @relation("InvitedBy")
+  notifications     Notification[]
+  auditLogs         AuditLog[]
+
+  @@map("users")
+}
+
+model Family {
+  id          String   @id @default(uuid())
+  name        String
+  description String?
+  coverUrl    String?
+  inviteCode  String   @unique
+  creatorId   String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  creator      User           @relation("FamilyCreator", fields: [creatorId], references: [id])
+  members      FamilyMember[]
+  albums       Album[]
+  memories     Memory[]
+  invitations  Invitation[]
+  timelineEvents TimelineEvent[]
+
+  @@map("families")
+}
+
+model FamilyMember {
+  id           String     @id @default(uuid())
+  familyId     String
+  userId       String?    // Nullable if member has not claimed user account
+  role         FamilyRole @default(MEMBER)
+  firstName    String
+  lastName     String
+  maidenName   String?
+  gender       Gender     @default(UNKNOWN)
+  birthDate    DateTime?
+  birthPlace   String?
+  deathDate    DateTime?
+  deathPlace   String?
+  isDeceased   Boolean    @default(false)
+  avatarUrl    String?
+  coverUrl     String?
+  bio          String?    @db.Text
+  occupation   String?
+  education    String?
+  achievements String?    @db.Text
+  phone        String?
+  email        String?
+  isPrivate    Boolean    @default(false)
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  family   Family @relation(fields: [familyId], references: [id], onDelete: Cascade)
+  user     User?  @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  // Relationships where this member is source or target
+  relationshipsFrom Relationship[] @relation("RelFromMember")
+  relationshipsTo   Relationship[] @relation("RelToMember")
+
+  // Content tags
+  timelineEvents TimelineEvent[]
+  taggedMemories MemoryTag[]
+
+  @@map("family_members")
+}
+
+model Relationship {
+  id           String       @id @default(uuid())
+  fromMemberId String
+  toMemberId   String
+  relationType RelationType
+  notes        String?
+  createdAt    DateTime     @default(now())
+
+  fromMember FamilyMember @relation("RelFromMember", fields: [fromMemberId], references: [id], onDelete: Cascade)
+  toMember   FamilyMember @relation("RelToMember", fields: [toMemberId], references: [id], onDelete: Cascade)
+
+  @@unique([fromMemberId, toMemberId, relationType])
+  @@map("relationships")
+}
+
+model Album {
+  id          String   @id @default(uuid())
+  familyId    String
+  title       String
+  description String?
+  coverUrl    String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  family   Family   @relation(fields: [familyId], references: [id], onDelete: Cascade)
+  memories Memory[]
+
+  @@map("albums")
+}
+
+model Memory {
+  id          String   @id @default(uuid())
+  familyId    String
+  albumId     String?
+  title       String
+  description String?  @db.Text
+  location    String?
+  memoryDate  DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  family     Family       @relation(fields: [familyId], references: [id], onDelete: Cascade)
+  album      Album?       @relation(fields: [albumId], references: [id], onDelete: SetNull)
+  mediaFiles MediaFile[]
+  taggedMembers MemoryTag[]
+  comments   Comment[]
+  reactions  Reaction[]
+
+  @@map("memories")
+}
+
+model MemoryTag {
+  id       String @id @default(uuid())
+  memoryId String
+  memberId String
+
+  memory Memory       @relation(fields: [memoryId], references: [id], onDelete: Cascade)
+  member FamilyMember @relation(fields: [memberId], references: [id], onDelete: Cascade)
+
+  @@unique([memoryId, memberId])
+  @@map("memory_tags")
+}
+
+model MediaFile {
+  id        String    @id @default(uuid())
+  memoryId  String
+  fileUrl   String
+  fileKey   String
+  fileType  MediaType
+  fileName  String
+  fileSize  Int
+  mimeType  String
+  createdAt DateTime  @default(now())
+
+  memory Memory @relation(fields: [memoryId], references: [id], onDelete: Cascade)
+
+  @@map("media_files")
+}
+
+model Comment {
+  id        String   @id @default(uuid())
+  memoryId  String
+  authorId  String
+  content   String   @db.Text
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  memory Memory @relation(fields: [memoryId], references: [id], onDelete: Cascade)
+
+  @@map("comments")
+}
+
+model Reaction {
+  id        String   @id @default(uuid())
+  memoryId  String
+  authorId  String
+  emoji     String   // e.g. ❤️, 👏, 💡, 🕊️
+  createdAt DateTime @default(now())
+
+  memory Memory @relation(fields: [memoryId], references: [id], onDelete: Cascade)
+
+  @@unique([memoryId, authorId, emoji])
+  @@map("reactions")
+}
+
+model TimelineEvent {
+  id          String        @id @default(uuid())
+  familyId    String
+  memberId    String
+  title       String
+  category    EventCategory @default(OTHER)
+  eventDate   DateTime
+  location    String?
+  description String?       @db.Text
+  mediaUrl    String?
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  family Family       @relation(fields: [familyId], references: [id], onDelete: Cascade)
+  member FamilyMember @relation(fields: [memberId], references: [id], onDelete: Cascade)
+
+  @@map("timeline_events")
+}
+
+model Invitation {
+  id         String       @id @default(uuid())
+  familyId   String
+  email      String
+  role       FamilyRole   @default(MEMBER)
+  code       String       @unique
+  invitedById String
+  status     InviteStatus @default(PENDING)
+  expiresAt  DateTime
+  createdAt  DateTime     @default(now())
+
+  family    Family @relation(fields: [familyId], references: [id], onDelete: Cascade)
+  invitedBy User   @relation("InvitedBy", fields: [invitedById], references: [id], onDelete: Cascade)
+
+  @@map("invitations")
+}
+
+model Notification {
+  id        String   @id @default(uuid())
+  userId    String
+  title     String
+  body      String
+  type      String   // INVITATION, BIRTHDAY, MEMORY_ADDED, COMMENT, SYSTEM
+  actionUrl String?
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("notifications")
+}
+
+model AuditLog {
+  id        String   @id @default(uuid())
+  userId    String?
+  action    String
+  entity    String
+  entityId  String?
+  ipAddress String?
+  metadata  Json?
+  createdAt DateTime @default(now())
+
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@map("audit_logs")
+}

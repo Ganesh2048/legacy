@@ -1,0 +1,29 @@
+{
+  "name": "legacy-family-tree",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Legacy - Private Digital Family Heritage & Memory Preservation Platform",
+  "scripts": {
+    "dev:backend": "cd backend && npm run start:dev",
+    "dev:frontend": "cd frontend && npm run dev",
+    "build:backend": "cd backend && npm run build",
+    "build:frontend": "cd frontend && npm run build",
+    "db:migrate": "cd backend && npx prisma migrate dev",
+    "db:seed": "cd backend && npx prisma db seed",
+    "db:studio": "cd backend && npx prisma studio",
+    "docker:up": "docker-compose up -d --build",
+    "docker:down": "docker-compose down"
+  },
+  "keywords": [
+    "family-tree",
+    "genealogy",
+    "memories",
+    "heritage",
+    "nextjs",
+    "nestjs",
+    "prisma",
+    "postgresql"
+  ],
+  "author": "Legacy Team",
+  "license": "MIT"
+}

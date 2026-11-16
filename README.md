@@ -85,7 +85,7 @@ register, dashboard, tree, members, memories, timeline and settings.
 
 Known gaps, in the order I intend to close them:
 
-- [ ] Test coverage is thin — one controller spec. Services need unit tests,
+- [x] Test coverage is thin — one controller spec. Services need unit tests,
       starting with relationship validation.
 - [x] Relationship integrity is not enforced beyond the unique constraint: the
       schema currently permits a cycle (a member as their own ancestor).

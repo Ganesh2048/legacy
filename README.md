@@ -92,7 +92,7 @@ Known gaps, in the order I intend to close them:
 - [ ] `GET /families/:familyId/memories` is unpaginated.
 - [ ] No rate limiting on auth routes.
 - [ ] Media upload goes direct to the API rather than via presigned S3 URLs.
-- [ ] No CI.
+- [x] No CI.
 
 ## Licence
 

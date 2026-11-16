@@ -1,7 +1,7 @@
 import { Controller, Post, Get, Body, Param, Query, UseGuards } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth, ApiQuery } from '@nestjs/swagger';
 import { MemoriesService } from './memories.service';
-import { CreateAlbumDto, CreateMemoryDto, AddCommentDto, AddReactionDto } from './dto/memory.dto';
+import { CreateAlbumDto, CreateMemoryDto, AddCommentDto, AddReactionDto, GetMemoriesQueryDto } from './dto/memory.dto';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { CurrentUser } from '../auth/current-user.decorator';
 
@@ -39,14 +39,13 @@ export class MemoriesController {
   }
 
   @Get('families/:familyId/memories')
-  @ApiOperation({ summary: 'Get memories feed for a family' })
-  @ApiQuery({ name: 'albumId', required: false })
+  @ApiOperation({ summary: 'Get memories feed for a family with pagination' })
   getMemories(
     @CurrentUser('id') userId: string,
     @Param('familyId') familyId: string,
-    @Query('albumId') albumId?: string,
+    @Query() query: GetMemoriesQueryDto,
   ) {
-    return this.memoriesService.getMemories(userId, familyId, albumId);
+    return this.memoriesService.getMemories(userId, familyId, query);
   }
 
   @Get('memories/:id')

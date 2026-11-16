@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
-import { CreateAlbumDto, CreateMemoryDto, AddCommentDto, AddReactionDto } from './dto/memory.dto';
+import { CreateAlbumDto, CreateMemoryDto, AddCommentDto, AddReactionDto, GetMemoriesQueryDto } from './dto/memory.dto';
 
 @Injectable()
 export class MemoriesService {
@@ -80,29 +80,47 @@ export class MemoriesService {
     });
   }
 
-  async getMemories(userId: string, familyId: string, albumId?: string) {
+  async getMemories(userId: string, familyId: string, query?: GetMemoriesQueryDto) {
     const isMember = await this.prisma.familyMember.findFirst({
       where: { familyId, userId },
     });
     if (!isMember) throw new ForbiddenException('Access denied to family');
 
-    return this.prisma.memory.findMany({
-      where: {
-        familyId,
-        ...(albumId ? { albumId } : {}),
-      },
-      include: {
-        mediaFiles: true,
-        taggedMembers: {
-          include: { member: true },
+    const page = Math.max(1, query?.page ?? 1);
+    const limit = Math.min(100, Math.max(1, query?.limit ?? 20));
+    const skip = (page - 1) * limit;
+
+    const where = {
+      familyId,
+      ...(query?.albumId ? { albumId: query.albumId } : {}),
+    };
+
+    const [total, data] = await Promise.all([
+      this.prisma.memory.count({ where }),
+      this.prisma.memory.findMany({
+        where,
+        include: {
+          mediaFiles: true,
+          taggedMembers: {
+            include: { member: true },
+          },
+          comments: {
+            orderBy: { createdAt: 'asc' },
+          },
+          reactions: true,
         },
-        comments: {
-          orderBy: { createdAt: 'asc' },
-        },
-        reactions: true,
-      },
-      orderBy: { createdAt: 'desc' },
-    });
+        orderBy: { createdAt: 'desc' },
+        skip,
+        take: limit,
+      }),
+    ]);
+
+    return {
+      data,
+      total,
+      page,
+      limit,
+    };
   }
 
   async getMemoryDetails(userId: string, memoryId: string) {

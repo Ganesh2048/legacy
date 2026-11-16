@@ -17,6 +17,8 @@ export default function MemoriesPage() {
   const queryClient = useQueryClient();
 
   const [activeAlbumId, setActiveAlbumId] = useState<string | null>(null);
+  const [page, setPage] = useState(1);
+  const limit = 20;
   const [selectedMemory, setSelectedMemory] = useState<any | null>(null);
   const [showUploadModal, setShowUploadModal] = useState(false);
 
@@ -34,14 +36,21 @@ export default function MemoriesPage() {
     enabled: !!currentFamily?.id,
   });
 
-  const { data: memories, isLoading } = useQuery({
-    queryKey: ['memories', currentFamily?.id, activeAlbumId],
-    queryFn: () =>
-      fetchApi(
-        `/families/${currentFamily?.id}/memories${activeAlbumId ? `?albumId=${activeAlbumId}` : ''}`,
-      ),
+  const { data: memoriesResponse, isLoading } = useQuery({
+    queryKey: ['memories', currentFamily?.id, activeAlbumId, page],
+    queryFn: () => {
+      const params = new URLSearchParams();
+      if (activeAlbumId) params.append('albumId', activeAlbumId);
+      params.append('page', String(page));
+      params.append('limit', String(limit));
+      return fetchApi(`/families/${currentFamily?.id}/memories?${params.toString()}`);
+    },
     enabled: !!currentFamily?.id,
   });
+
+  const memories = memoriesResponse?.data || [];
+  const total = memoriesResponse?.total || 0;
+  const totalPages = Math.ceil(total / limit);
 
   const createMemoryMutation = useMutation({
     mutationFn: (newMemory: any) =>
@@ -126,7 +135,10 @@ export default function MemoriesPage() {
         {/* Albums Filter Pills */}
         <div className="flex items-center space-x-2 overflow-x-auto pb-2">
           <button
-            onClick={() => setActiveAlbumId(null)}
+            onClick={() => {
+              setActiveAlbumId(null);
+              setPage(1);
+            }}
             className={`px-4 py-2 rounded-xl text-xs font-semibold transition-colors shrink-0 ${
               activeAlbumId === null
                 ? 'bg-amber-800 text-amber-50 dark:bg-amber-600 dark:text-stone-950'
@@ -138,7 +150,10 @@ export default function MemoriesPage() {
           {albums?.map((album: any) => (
             <button
               key={album.id}
-              onClick={() => setActiveAlbumId(album.id)}
+              onClick={() => {
+                setActiveAlbumId(album.id);
+                setPage(1);
+              }}
               className={`px-4 py-2 rounded-xl text-xs font-semibold transition-colors shrink-0 ${
                 activeAlbumId === album.id
                   ? 'bg-amber-800 text-amber-50 dark:bg-amber-600 dark:text-stone-950'
@@ -205,6 +220,33 @@ export default function MemoriesPage() {
                 </CardContent>
               </Card>
             ))}
+          </div>
+        )}
+
+        {/* Pagination Controls */}
+        {totalPages > 1 && (
+          <div className="flex items-center justify-between pt-4 border-t border-stone-200 dark:border-stone-800 text-xs">
+            <span className="text-stone-500 dark:text-stone-400">
+              Showing {memories.length} of {total} memories (Page {page} of {totalPages})
+            </span>
+            <div className="flex items-center space-x-2">
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={page <= 1}
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+              >
+                Previous
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={page >= totalPages}
+                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+              >
+                Next
+              </Button>
+            </div>
           </div>
         )}
 

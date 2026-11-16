@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
-import { ConfigModule } from '@nestjs/config';
+import { ConfigModule, ConfigService } from '@nestjs/config';
+import { ThrottlerModule } from '@nestjs/throttler';
 import { PrismaModule } from './prisma/prisma.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { FamiliesModule } from './modules/families/families.module';
@@ -14,6 +15,26 @@ import { AppService } from './app.service';
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
+    ThrottlerModule.forRootAsync({
+      imports: [ConfigModule],
+      inject: [ConfigService],
+      useFactory: (config: ConfigService) => {
+        const rawTtl = config.get<number | string>('THROTTLE_TTL');
+        let ttl = 60000;
+        if (rawTtl !== undefined && rawTtl !== null) {
+          const numTtl = Number(rawTtl);
+          ttl = numTtl < 1000 ? numTtl * 1000 : numTtl;
+        }
+        const rawLimit = config.get<number | string>('THROTTLE_LIMIT');
+        const limit = rawLimit !== undefined && rawLimit !== null ? Number(rawLimit) : 5;
+        return [
+          {
+            ttl,
+            limit,
+          },
+        ];
+      },
+    }),
     PrismaModule,
     AuthModule,
     FamiliesModule,

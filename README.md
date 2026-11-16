@@ -90,7 +90,7 @@ Known gaps, in the order I intend to close them:
 - [x] Relationship integrity is not enforced beyond the unique constraint: the
       schema currently permits a cycle (a member as their own ancestor).
 - [x] `GET /families/:familyId/memories` is unpaginated.
-- [ ] No rate limiting on auth routes.
+- [x] No rate limiting on auth routes.
 - [ ] Media upload goes direct to the API rather than via presigned S3 URLs.
 - [x] No CI.
 

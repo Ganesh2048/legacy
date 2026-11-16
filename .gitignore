@@ -34,3 +34,6 @@ yarn-error.log*
 # prisma local db
 *.db
 *.sqlite
+
+# application strategy — must never be committed
+*alignerr*

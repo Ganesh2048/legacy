@@ -96,4 +96,4 @@ Known gaps, in the order I intend to close them:
 
 ## Licence
 
-Personal project. All code authored by me.
+MIT — see [LICENSE](LICENSE). All code authored by me.

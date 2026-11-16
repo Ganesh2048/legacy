@@ -87,7 +87,7 @@ Known gaps, in the order I intend to close them:
 
 - [ ] Test coverage is thin — one controller spec. Services need unit tests,
       starting with relationship validation.
-- [ ] Relationship integrity is not enforced beyond the unique constraint: the
+- [x] Relationship integrity is not enforced beyond the unique constraint: the
       schema currently permits a cycle (a member as their own ancestor).
 - [ ] `GET /families/:familyId/memories` is unpaginated.
 - [ ] No rate limiting on auth routes.

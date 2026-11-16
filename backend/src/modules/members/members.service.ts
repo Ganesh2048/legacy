@@ -1,4 +1,10 @@
-import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  ForbiddenException,
+  BadRequestException,
+} from '@nestjs/common';
+import { RelationType } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { CreateMemberDto, CreateRelationshipDto } from './dto/member.dto';
 
@@ -68,6 +74,10 @@ export class MembersService {
   }
 
   async addRelationship(userId: string, fromMemberId: string, dto: CreateRelationshipDto) {
+    if (fromMemberId === dto.toMemberId) {
+      throw new BadRequestException('Cannot create relationship to self');
+    }
+
     const fromMember = await this.prisma.familyMember.findUnique({
       where: { id: fromMemberId },
     });
@@ -77,6 +87,76 @@ export class MembersService {
       where: { familyId: fromMember.familyId, userId },
     });
     if (!isMember) throw new ForbiddenException('Access denied');
+
+    const toMember = await this.prisma.familyMember.findUnique({
+      where: { id: dto.toMemberId },
+    });
+    if (!toMember) throw new NotFoundException('Target member not found');
+
+    if (toMember.familyId !== fromMember.familyId) {
+      throw new BadRequestException('Target member belongs to a different family');
+    }
+
+    const ancestryTypes: RelationType[] = [
+      RelationType.FATHER,
+      RelationType.MOTHER,
+      RelationType.CHILD,
+      RelationType.ADOPTED_CHILD,
+    ];
+
+    if (ancestryTypes.includes(dto.relationType)) {
+      const isParentType =
+        dto.relationType === RelationType.FATHER || dto.relationType === RelationType.MOTHER;
+      const proposedParentId = isParentType ? fromMemberId : dto.toMemberId;
+      const proposedChildId = isParentType ? dto.toMemberId : fromMemberId;
+
+      const existingRelationships = await this.prisma.relationship.findMany({
+        where: {
+          fromMember: { familyId: fromMember.familyId },
+        },
+        select: {
+          fromMemberId: true,
+          toMemberId: true,
+          relationType: true,
+        },
+      });
+
+      const parentMap = new Map<string, string[]>();
+      for (const rel of existingRelationships) {
+        if (rel.relationType === RelationType.FATHER || rel.relationType === RelationType.MOTHER) {
+          const parents = parentMap.get(rel.toMemberId) || [];
+          parents.push(rel.fromMemberId);
+          parentMap.set(rel.toMemberId, parents);
+        } else if (
+          rel.relationType === RelationType.CHILD ||
+          rel.relationType === RelationType.ADOPTED_CHILD
+        ) {
+          const parents = parentMap.get(rel.fromMemberId) || [];
+          parents.push(rel.toMemberId);
+          parentMap.set(rel.fromMemberId, parents);
+        }
+      }
+
+      const visited = new Set<string>();
+      const queue: { id: string; depth: number }[] = [{ id: proposedParentId, depth: 0 }];
+      visited.add(proposedParentId);
+
+      while (queue.length > 0) {
+        const { id: currentId, depth } = queue.shift()!;
+        if (depth >= 64) break;
+
+        const parents = parentMap.get(currentId) || [];
+        for (const parentId of parents) {
+          if (parentId === proposedChildId) {
+            throw new BadRequestException('Relationship would create an ancestry cycle');
+          }
+          if (!visited.has(parentId)) {
+            visited.add(parentId);
+            queue.push({ id: parentId, depth: depth + 1 });
+          }
+        }
+      }
+    }
 
     return this.prisma.relationship.create({
       data: {

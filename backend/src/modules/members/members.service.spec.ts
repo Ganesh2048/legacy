@@ -1,6 +1,11 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { NotFoundException, ForbiddenException, BadRequestException } from '@nestjs/common';
-import { RelationType, FamilyRole } from '@prisma/client';
+import {
+  NotFoundException,
+  ForbiddenException,
+  BadRequestException,
+  ConflictException,
+} from '@nestjs/common';
+import { RelationType, FamilyRole, Prisma } from '@prisma/client';
 import { MembersService } from './members.service';
 import { PrismaService } from '../../prisma/prisma.service';
 
@@ -537,6 +542,30 @@ describe('MembersService', () => {
           relationType: RelationType.CHILD,
         }),
       ).rejects.toThrow(BadRequestException);
+    });
+
+    it('should throw ConflictException on duplicate relationship (P2002)', async () => {
+      prisma.familyMember.findUnique
+        .mockResolvedValueOnce(memberA)
+        .mockResolvedValueOnce(memberB);
+      prisma.familyMember.findFirst.mockResolvedValue(memberA);
+      prisma.relationship.findMany.mockResolvedValue([]);
+
+      const p2002Error = new Prisma.PrismaClientKnownRequestError(
+        'Unique constraint failed on the fields: (`fromMemberId`,`toMemberId`,`relationType`)',
+        {
+          code: 'P2002',
+          clientVersion: '6.3.0',
+        },
+      );
+      prisma.relationship.create.mockRejectedValue(p2002Error);
+
+      await expect(
+        service.addRelationship(userId, memberA.id, {
+          toMemberId: memberB.id,
+          relationType: RelationType.FATHER,
+        }),
+      ).rejects.toThrow(ConflictException);
     });
   });
 });

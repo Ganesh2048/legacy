@@ -3,8 +3,9 @@ import {
   NotFoundException,
   ForbiddenException,
   BadRequestException,
+  ConflictException,
 } from '@nestjs/common';
-import { RelationType, FamilyRole } from '@prisma/client';
+import { RelationType, FamilyRole, Prisma } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { CreateMemberDto, CreateRelationshipDto } from './dto/member.dto';
 
@@ -157,7 +158,7 @@ export class MembersService {
 
       while (queue.length > 0) {
         const { id: currentId, depth } = queue.shift()!;
-        if (depth >= 64) break;
+        if (depth >= 64) continue;
 
         const parents = parentMap.get(currentId) || [];
         for (const parentId of parents) {
@@ -172,14 +173,24 @@ export class MembersService {
       }
     }
 
-    return this.prisma.relationship.create({
-      data: {
-        fromMemberId,
-        toMemberId: dto.toMemberId,
-        relationType: dto.relationType,
-        notes: dto.notes,
-      },
-    });
+    try {
+      return await this.prisma.relationship.create({
+        data: {
+          fromMemberId,
+          toMemberId: dto.toMemberId,
+          relationType: dto.relationType,
+          notes: dto.notes,
+        },
+      });
+    } catch (error) {
+      if (
+        (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') ||
+        (error as { code?: string })?.code === 'P2002'
+      ) {
+        throw new ConflictException('Relationship already exists');
+      }
+      throw error;
+    }
   }
 
   async getFamilyTree(userId: string, familyId: string) {

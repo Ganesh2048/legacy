@@ -4,7 +4,7 @@ import {
   ForbiddenException,
   BadRequestException,
 } from '@nestjs/common';
-import { RelationType } from '@prisma/client';
+import { RelationType, FamilyRole } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { CreateMemberDto, CreateRelationshipDto } from './dto/member.dto';
 
@@ -16,7 +16,14 @@ export class MembersService {
     const isMember = await this.prisma.familyMember.findFirst({
       where: { familyId, userId },
     });
-    if (!isMember) throw new ForbiddenException('Access denied to family');
+    if (
+      !isMember ||
+      (isMember.role !== FamilyRole.OWNER &&
+        isMember.role !== FamilyRole.ADMIN &&
+        isMember.role !== FamilyRole.CONTRIBUTOR)
+    ) {
+      throw new ForbiddenException('Insufficient permissions to add family members');
+    }
 
     return this.prisma.familyMember.create({
       data: {
@@ -86,7 +93,14 @@ export class MembersService {
     const isMember = await this.prisma.familyMember.findFirst({
       where: { familyId: fromMember.familyId, userId },
     });
-    if (!isMember) throw new ForbiddenException('Access denied');
+    if (
+      !isMember ||
+      (isMember.role !== FamilyRole.OWNER &&
+        isMember.role !== FamilyRole.ADMIN &&
+        isMember.role !== FamilyRole.CONTRIBUTOR)
+    ) {
+      throw new ForbiddenException('Insufficient permissions to modify relationships');
+    }
 
     const toMember = await this.prisma.familyMember.findUnique({
       where: { id: dto.toMemberId },
